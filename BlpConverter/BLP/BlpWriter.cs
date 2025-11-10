@@ -10,7 +10,7 @@ public class BlpWriter
 {
     public static void SaveBlp(string sourcePath, string targetPath, ConversionSettings settings)
     {
-        using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(sourcePath);
+        using var image = Image.Load<Rgba32>(sourcePath);
         SaveBlp(image, targetPath, settings);
     }
 

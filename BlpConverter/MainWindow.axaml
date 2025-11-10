@@ -1,0 +1,252 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="BlpConverter.MainWindow"
+        Title="BLP Converter"
+        Width="1024"
+        Height="768"
+        MinWidth="800"
+        MinHeight="600">
+
+    <TabControl FontSize="12">
+        <!-- Single File Tab -->
+        <TabItem Header="Single File">
+            <Grid RowDefinitions="Auto,*,Auto" Margin="10">
+                <!-- File Selection Area -->
+                <Border Grid.Row="0"
+                        Name="DropZone"
+                        Height="120"
+                        Background="#2A2A2A"
+                        BorderBrush="#404040"
+                        BorderThickness="2"
+                        CornerRadius="8"
+                        Margin="0,0,0,10"
+                        DragDrop.AllowDrop="True">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10">
+                        <TextBlock Text="Drag and drop files here or click Browse"
+                                   FontSize="14"
+                                   HorizontalAlignment="Center"/>
+                        <Button Name="BtnBrowse"
+                                Content="Browse..."
+                                Width="150"
+                                HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Content Area -->
+                <Grid Grid.Row="1" ColumnDefinitions="2*,*">
+                    <!-- Preview -->
+                    <Border Grid.Column="0"
+                            Background="#1E1E1E"
+                            BorderBrush="#404040"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10"
+                            Margin="0,0,5,0">
+                        <Viewbox Stretch="Uniform">
+                            <Image Name="PreviewImage"
+                                   Stretch="Uniform"/>
+                        </Viewbox>
+                    </Border>
+
+                    <!-- File Info and Conversion -->
+                    <StackPanel Grid.Column="1" Spacing="10" Margin="5,0,0,0">
+                        <!-- File Information -->
+                        <Border Background="#1E1E1E"
+                                BorderBrush="#404040"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="15">
+                            <StackPanel>
+                                <TextBlock Text="File Information"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,10"/>
+                                <TextBlock Name="FileInfoText"
+                                           Text="No file loaded"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Conversion Buttons -->
+                        <Border Background="#1E1E1E"
+                                BorderBrush="#404040"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="15">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Convert"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,5"/>
+                                <Button Name="BtnConvertToPng"
+                                        Content="Convert to PNG"
+                                        HorizontalAlignment="Stretch"
+                                        IsEnabled="False"/>
+                                <Button Name="BtnConvertToJpeg"
+                                        Content="Convert to JPEG"
+                                        HorizontalAlignment="Stretch"
+                                        IsEnabled="False"/>
+                                <Button Name="BtnConvertToBlp"
+                                        Content="Convert to BLP"
+                                        HorizontalAlignment="Stretch"
+                                        IsEnabled="False"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </TabItem>
+
+        <!-- Batch Conversion Tab -->
+        <TabItem Header="Batch Conversion">
+            <Grid RowDefinitions="Auto,Auto,*" Margin="10">
+                <!-- Batch Options -->
+                <Border Grid.Row="0"
+                        Background="#1E1E1E"
+                        BorderBrush="#404040"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="15"
+                        Margin="0,0,0,10">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Row="0"
+                                   Text="Batch Conversion Options"
+                                   FontSize="16"
+                                   FontWeight="Bold"/>
+
+                        <!-- Source Folder -->
+                        <StackPanel Grid.Row="1" Spacing="5" Margin="0,10,0,0">
+                            <TextBlock Text="Source Folder:"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0"
+                                         Name="TxtSourceFolder"
+                                         IsReadOnly="True"
+                                         Watermark="Select source folder..."/>
+                                <Button Grid.Column="1"
+                                        Name="BtnSelectSource"
+                                        Content="Browse..."
+                                        Width="100"
+                                        Margin="5,0,0,0"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Target Folder -->
+                        <StackPanel Grid.Row="2" Spacing="5" Margin="0,10,0,0">
+                            <TextBlock Text="Target Folder:"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0"
+                                         Name="TxtTargetFolder"
+                                         IsReadOnly="True"
+                                         Watermark="Select target folder..."/>
+                                <Button Grid.Column="1"
+                                        Name="BtnSelectTarget"
+                                        Content="Browse..."
+                                        Width="100"
+                                        Margin="5,0,0,0"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Start Button -->
+                        <Button Grid.Row="4"
+                                Name="BtnBatchConvert"
+                                Content="Start Conversion"
+                                HorizontalAlignment="Right"
+                                Width="180"
+                                Margin="0,10,0,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- Progress -->
+                <Border Grid.Row="1"
+                        Background="#1E1E1E"
+                        BorderBrush="#404040"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="15">
+                    <StackPanel Spacing="5">
+                        <TextBlock Name="LblProgress" Text="Progress:"/>
+                        <ProgressBar Name="BatchProgressBar"
+                                     Height="25"
+                                     Minimum="0"
+                                     Maximum="100"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- Settings Tab -->
+        <TabItem Header="Settings">
+            <ScrollViewer>
+                <StackPanel Margin="10" Spacing="15" MaxWidth="600">
+                    <!-- Image Export Settings -->
+                    <Border Background="#1E1E1E"
+                            BorderBrush="#404040"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="15">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Image Export Settings"
+                                       FontSize="16"
+                                       FontWeight="Bold"/>
+
+                            <!-- Default Format -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Default Output Format:"/>
+                                <ComboBox Name="CmbDefaultFormat"
+                                          HorizontalAlignment="Stretch">
+                                    <ComboBoxItem Content="PNG"/>
+                                    <ComboBoxItem Content="JPEG"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <!-- JPEG Quality -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="JPEG Quality (1-100):"/>
+                                <NumericUpDown Name="NumJpegQuality"
+                                               Minimum="1"
+                                               Maximum="100"
+                                               Value="95"
+                                               HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- BLP Settings -->
+                    <Border Background="#1E1E1E"
+                            BorderBrush="#404040"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="15">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="BLP Settings"
+                                       FontSize="16"
+                                       FontWeight="Bold"/>
+
+                            <!-- Preserve Alpha -->
+                            <CheckBox Name="ChkPreserveAlpha"
+                                      Content="Preserve Alpha"
+                                      IsChecked="True"/>
+
+                            <!-- Generate Mipmaps -->
+                            <CheckBox Name="ChkGenerateMipmaps"
+                                      Content="Generate Mipmaps"
+                                      IsChecked="True"/>
+
+                            <!-- Compression Format -->
+                            <StackPanel Spacing="5">
+                                <TextBlock Text="Compression Format:"/>
+                                <ComboBox Name="CmbCompression"
+                                          HorizontalAlignment="Stretch">
+                                    <ComboBoxItem Content="DXT1"/>
+                                    <ComboBoxItem Content="DXT3"/>
+                                    <ComboBoxItem Content="DXT5"/>
+                                    <ComboBoxItem Content="Uncompressed"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+    </TabControl>
+</Window>

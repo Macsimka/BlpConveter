@@ -1,6 +1,4 @@
-using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -76,14 +74,6 @@ namespace BlpConverter.BLP
 
         private Stream stream; // Reference of the stream
 
-        /// <summary>
-        /// Extracts the palettized Image-Data from the given Mipmap and returns a byte-Array in the 32Bit RGBA-Format
-        /// </summary>
-        /// <param name="mipmap">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
-        /// <param name="w"></param>
-        /// <param name="h"></param>
-        /// <param name="data"></param>
-        /// <returns>Pixel-data</returns>
         private byte[] GetPictureUncompressedByteArray(int w, int h, byte[] data)
         {
             int length = w * h;
@@ -119,11 +109,6 @@ namespace BlpConverter.BLP
             }
         }
 
-        /// <summary>
-        /// Returns the raw Mipmap-Image Data. This data can either be compressed or uncompressed, depending on the Header-Data
-        /// </summary>
-        /// <param name="mipmapLevel"></param>
-        /// <returns></returns>
         private byte[] GetPictureData(int mipmapLevel)
         {
             if (stream != null)
@@ -137,9 +122,6 @@ namespace BlpConverter.BLP
             return null;
         }
 
-        /// <summary>
-        /// Returns the amount of Mipmaps in this BLP-File
-        /// </summary>
         public int MipMapCount
         {
             get
@@ -221,9 +203,6 @@ namespace BlpConverter.BLP
             }
         }
 
-        /// <summary>
-        /// Returns the uncompressed image as a byte array in the 32pppRGBA-Format
-        /// </summary>
         private byte[] GetImageBytes(int w, int h, byte[] data)
         {
             switch (colorEncoding)
@@ -237,7 +216,7 @@ namespace BlpConverter.BLP
                                 ms.Write(data, 0, data.Length);
                                 ms.Position = 0;
 
-                                using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(ms))
+                                using (var img = Image.Load<Rgba32>(ms))
                                 {
                                     byte[] pixelBytes = new byte[img.Width * img.Height * Unsafe.SizeOf<Rgba32>()];
                                     img.CopyPixelDataTo(pixelBytes);
@@ -245,7 +224,7 @@ namespace BlpConverter.BLP
                                 }
                             }
                         else
-                            using (var img = SixLabors.ImageSharp.Image.Load<Rgba32>(data))
+                            using (var img = Image.Load<Rgba32>(data))
                             {
                                 byte[] pixelBytes = new byte[img.Width * img.Height * Unsafe.SizeOf<Rgba32>()];
                                 img.CopyPixelDataTo(pixelBytes);
@@ -289,42 +268,15 @@ namespace BlpConverter.BLP
             }
         }
 
-        /// <summary>
-        /// Converts the BLP to a System.Drawing.Bitmap
-        /// </summary>
-        /// <param name="mipmapLevel">The desired Mipmap-Level. If the given level is invalid, the smallest available level is choosen</param>
-        /// <returns>The Bitmap</returns>
-        public Bitmap GetBitmap(int mipmapLevel)
-        {
-            byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding != BlpColorEncoding.Argb8888);
-
-            Bitmap bmp = new Bitmap(w, h);
-
-            // Faster bitmap Data copy
-            BitmapData bmpdata = bmp.LockBits(new System.Drawing.Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            Marshal.Copy(pic, 0, bmpdata.Scan0, pic.Length); // copy! :D
-            bmp.UnlockBits(bmpdata);
-
-            return bmp;
-        }
-
-        /// <summary>
-        /// Converts the BLP to a SixLabors.ImageSharp.Image
-        /// </summary>
         public Image<Rgba32> GetImage(int mipmapLevel)
         {
             byte[] pic = GetPixels(mipmapLevel, out int w, out int h, colorEncoding == BlpColorEncoding.Argb8888);
 
-            var image = SixLabors.ImageSharp.Image.LoadPixelData<Rgba32>(pic, w, h);
+            var image = Image.LoadPixelData<Rgba32>(pic, w, h);
 
             return image;
         }
 
-        /// <summary>
-        /// Returns array of pixels in BGRA or RGBA order
-        /// </summary>
-        /// <param name="mipmapLevel"></param>
-        /// <returns></returns>
         public byte[] GetPixels(int mipmapLevel, out int w, out int h, bool bgra = true)
         {
             if (mipmapLevel >= MipMapCount)
@@ -345,17 +297,11 @@ namespace BlpConverter.BLP
             return pic;
         }
 
-        /// <summary>
-        /// Runs close()
-        /// </summary>
         public void Dispose()
         {
             Close();
         }
 
-        /// <summary>
-        /// Closes the Memorystream
-        /// </summary>
         public void Close()
         {
             if (stream != null)
