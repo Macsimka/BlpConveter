@@ -1,6 +1,7 @@
 ﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using System.Runtime.InteropServices;
+using static BlpConverter.BLP.RustBlpConverter;
 
 namespace BlpConverter.BLP;
 
@@ -21,33 +22,11 @@ public static class RustBlpConverter
         JPEG = 1
     }
 
-    public enum BlpCompression
-    {
-        Uncompressed = 0,
-        DXT1 = 1,
-        DXT3 = 2,
-        DXT5 = 3
-    }
-
     public enum BlpVersion : uint
     {
         BLP0,
         BLP1,
         BLP2
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct BlpInfo
-    {
-        public uint Width;
-        public uint Height;
-        public uint MipmapCount;
-        public BlpVersion Version;
-        public uint Content;
-        public uint Compression;
-        public uint AlphaBits;
-        public uint AlphaType;
-        public uint HasMipmaps;
     }
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
@@ -192,4 +171,34 @@ public static class RustBlpConverter
     {
         return LoadBlpImage(blpPath, mipmapLevel);
     }
+}
+
+public enum BlpCompression
+{
+    Uncompressed = 0,
+    DXT1 = 1,
+    DXT3 = 2,
+    DXT5 = 3
+}
+
+public enum Compression
+{
+    Jpeg,
+    Raw1,
+    Raw3,
+    Dxtc,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct BlpInfo
+{
+    public uint Width;
+    public uint Height;
+    public uint MipmapCount;
+    public BlpVersion Version;
+    public uint Content;
+    public Compression Compression;
+    public uint AlphaBits;
+    public uint AlphaType;
+    public uint HasMipmaps;
 }

@@ -19,7 +19,6 @@ public partial class MainWindow : Window
 {
     private AppConfig config;
     private string currentFilePath;
-    private Image currentImage;
 
     public MainWindow()
     {
@@ -56,7 +55,7 @@ public partial class MainWindow : Window
         CmbCompression.SelectedIndex = (int)config.ConversionSettings.BlpCompressionFormat;
         CmbCompression.SelectionChanged += (_, _) =>
         {
-            config.ConversionSettings.BlpCompressionFormat = (RustBlpConverter.BlpCompression)CmbCompression.SelectedIndex;
+            config.ConversionSettings.BlpCompressionFormat = (BlpCompression)CmbCompression.SelectedIndex;
             config.Save();
         };
 
@@ -135,8 +134,6 @@ public partial class MainWindow : Window
             string ext = Path.GetExtension(filePath).ToLowerInvariant();
 
             // Clear previous file
-            currentImage?.Dispose();
-            currentImage = null;
             PreviewImage.Source = null;
 
             if (ext == ".blp")
@@ -154,13 +151,13 @@ public partial class MainWindow : Window
 
     private async Task LoadBlpFile(string filePath)
     {
-        currentImage = RustBlpConverter.LoadBlp(filePath);
+        using Image image = RustBlpConverter.LoadBlp(filePath);
         using var ms = new MemoryStream();
-        await currentImage.SaveAsPngAsync(ms);
+        await image.SaveAsPngAsync(ms);
         ms.Position = 0;
         PreviewImage.Source = new Bitmap(ms);
 
-        RustBlpConverter.BlpInfo info = new();
+        BlpInfo info = new();
         int result = RustBlpConverter.blp_get_info_extended(filePath, ref info);
 
         if (result != 0)
@@ -241,7 +238,7 @@ public partial class MainWindow : Window
 
     private async void BtnConvertToPng_Click(object sender, RoutedEventArgs e)
     {
-        if (currentImage == null)
+        if (string.IsNullOrEmpty(currentFilePath) || !File.Exists(currentFilePath))
             return;
 
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -256,7 +253,7 @@ public partial class MainWindow : Window
         {
             try
             {
-                await currentImage.SaveAsPngAsync(file.Path.LocalPath);
+                RustBlpConverter.BlpToImage(currentFilePath, file.Path.LocalPath);
                 await ShowMessage("Success", "File converted successfully!", MsBox.Avalonia.Enums.Icon.Success);
             }
             catch (Exception ex)
@@ -268,7 +265,7 @@ public partial class MainWindow : Window
 
     private async void BtnConvertToJpeg_Click(object sender, RoutedEventArgs e)
     {
-        if (currentImage == null)
+        if (string.IsNullOrEmpty(currentFilePath) || !File.Exists(currentFilePath))
             return;
 
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -283,7 +280,8 @@ public partial class MainWindow : Window
         {
             try
             {
-                await currentImage.SaveAsJpegAsync(file.Path.LocalPath, new JpegEncoder { Quality = config.ConversionSettings.JpegQuality });
+                //await currentImage.SaveAsJpegAsync(file.Path.LocalPath, new JpegEncoder { Quality = config.ConversionSettings.JpegQuality });
+                RustBlpConverter.BlpToImage(currentFilePath, file.Path.LocalPath, RustBlpConverter.ImageFormat.JPEG);
                 await ShowMessage("Success", "File converted successfully!", MsBox.Avalonia.Enums.Icon.Success);
             }
             catch (Exception ex)
@@ -377,47 +375,64 @@ public partial class MainWindow : Window
 
             BatchProgressBar.Maximum = files.Length;
 
+            // Get UI values before entering background threads
+            var sourceFolder = TxtSourceFolder.Text;
+            var targetFolder = TxtTargetFolder.Text;
+
             for (int i = 0; i < files.Length; i++)
             {
                 var sourceFile = files[i];
-                var relativePath = Path.GetRelativePath(TxtSourceFolder.Text, sourceFile);
+                var relativePath = Path.GetRelativePath(sourceFolder, sourceFile);
                 var ext = Path.GetExtension(sourceFile).ToLowerInvariant();
-
-                string targetFile;
-                if (ext == ".blp")
-                {
-                    // Convert BLP to PNG/JPEG
-                    var targetExt = config.ConversionSettings.DefaultOutputFormat == ImageFormat.Png ? ".png" : ".jpg";
-                    targetFile = Path.Combine(TxtTargetFolder.Text, Path.ChangeExtension(relativePath, targetExt));
-                }
-                else
-                {
-                    // Convert PNG/JPEG to BLP
-                    targetFile = Path.Combine(TxtTargetFolder.Text, Path.ChangeExtension(relativePath, ".blp"));
-                }
-
-                // Create target directory if needed
-                var targetDir = Path.GetDirectoryName(targetFile);
-                
-                if (!Directory.Exists(targetDir))
-                    Directory.CreateDirectory(targetDir!);
 
                 // Convert file
                 await Task.Run(() =>
                 {
+                    string targetFile;
+
                     if (ext == ".blp")
                     {
+                        // Get BLP info to check for alpha channel
+                        BlpInfo info = new();
+                        int result = RustBlpConverter.blp_get_info_extended(sourceFile, ref info);
+                        if (result != 0)
+                            return;
+
+                        // Automatically choose format based on alpha channel presence
+                        bool hasAlpha = info.AlphaBits > 0;
+                        var targetExt = hasAlpha ? ".png" : ".jpg";
+
+                        targetFile = Path.Combine(targetFolder, Path.ChangeExtension(relativePath, targetExt));
+
+                        // Create target directory if needed
+                        var targetDir = Path.GetDirectoryName(targetFile);
+                        if (!Directory.Exists(targetDir))
+                            Directory.CreateDirectory(targetDir!);
+
                         using var image = RustBlpConverter.LoadBlp(sourceFile);
 
-                        if (config.ConversionSettings.DefaultOutputFormat == ImageFormat.Png)
+                        if (hasAlpha)
                             image.SaveAsPng(targetFile);
                         else
-                        {
                             image.SaveAsJpeg(targetFile, new JpegEncoder { Quality = config.ConversionSettings.JpegQuality });
-                        }
                     }
                     else
-                        RustBlpConverter.ImageToBlp(sourceFile, targetFile, config.ConversionSettings.BlpCompressionFormat, config.ConversionSettings.GenerateMipmaps ? 0 : 1);
+                    {
+                        BlpCompression compression = BlpCompression.DXT5;
+
+                        if (ext is ".jpg" or ".jpeg")
+                            compression = BlpCompression.DXT1;
+
+                        // Convert PNG/JPEG to BLP
+                        targetFile = Path.Combine(targetFolder, Path.ChangeExtension(relativePath, ".blp"));
+
+                        // Create target directory if needed
+                        var targetDir = Path.GetDirectoryName(targetFile);
+                        if (!Directory.Exists(targetDir))
+                            Directory.CreateDirectory(targetDir!);
+
+                        RustBlpConverter.ImageToBlp(sourceFile, targetFile, compression, config.ConversionSettings.GenerateMipmaps ? 0 : 1);
+                    }
                 });
 
                 BatchProgressBar.Value = i + 1;
@@ -444,12 +459,6 @@ public partial class MainWindow : Window
         await box.ShowWindowDialogAsync(this);
     }
 
-    protected override void OnClosing(WindowClosingEventArgs e)
-    {
-        currentImage?.Dispose();
-        base.OnClosing(e);
-    }
-
     #region MyRegion
 
     static string GetContentTypeName(uint content)
@@ -462,21 +471,21 @@ public partial class MainWindow : Window
         };
     }
 
-    static string GetCompressionName(uint compression)
+    private static string GetCompressionName(Compression compression)
     {
         return compression switch
         {
-            0 => "JPEG",
-            1 => "Raw1 (Uncompressed)",
-            2 => "DXTC (DXT1/DXT3/DXT5)",
-            3 => "Raw3 (Uncompressed with palette)",
+            Compression.Jpeg => "JPEG",
+            Compression.Raw1 => "Raw1 (Uncompressed)",
+            Compression.Raw3 => "Raw3 (Uncompressed with palette)",
+            Compression.Dxtc => "DXTC (DXT1/DXT3/DXT5)",
             _ => $"Unknown ({compression})"
         };
     }
 
-    static string GetPixelFormatName(uint compression, uint alphaBits)
+    private static string GetPixelFormatName(Compression compression, uint alphaBits)
     {
-        if (compression == 2) // DXTC
+        if (compression == Compression.Dxtc)
         {
             return alphaBits switch
             {
@@ -486,7 +495,7 @@ public partial class MainWindow : Window
                 _ => $"DXT (unknown alpha: {alphaBits}-bit)"
             };
         }
-        else if (compression == 1) // Raw1
+        else if (compression == Compression.Raw1)
         {
             return alphaBits switch
             {
@@ -495,17 +504,13 @@ public partial class MainWindow : Window
                 _ => $"Raw ({alphaBits}-bit alpha)"
             };
         }
-        else if (compression == 3) // Raw3
-        {
+        else if (compression == Compression.Raw3)
             return "Paletted (256 colors, 4-bit alpha)";
-        }
         else // JPEG
-        {
             return "JPEG (lossy)";
-        }
     }
 
-    static double CalculateMemoryUsage(RustBlpConverter.BlpInfo info)
+    static double CalculateMemoryUsage(BlpInfo info)
     {
         double totalBytes = 0;
         uint width = info.Width;
