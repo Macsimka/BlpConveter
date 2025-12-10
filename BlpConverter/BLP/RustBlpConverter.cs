@@ -1,5 +1,6 @@
 ﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using static BlpConverter.BLP.RustBlpConverter;
 
@@ -8,6 +9,7 @@ namespace BlpConverter.BLP;
 public static class RustBlpConverter
 {
     private const string DLL_NAME = "rust_blp_converter.dll";
+    private static readonly Lazy<IntPtr> NativeHandle = new(EnsureNativeLibraryLoaded);
 
     public const int SUCCESS = 0;
     public const int ERROR_NULL_POINTER = -1;
@@ -27,6 +29,49 @@ public static class RustBlpConverter
         BLP0,
         BLP1,
         BLP2
+    }
+
+    static RustBlpConverter()
+    {
+        NativeLibrary.SetDllImportResolver(typeof(RustBlpConverter).Assembly, ResolveLibrary);
+        _ = NativeHandle.Value; // force extraction early
+    }
+
+    private static IntPtr ResolveLibrary(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (!libraryName.Contains("rust_blp_converter", StringComparison.OrdinalIgnoreCase))
+            return IntPtr.Zero;
+
+        try
+        {
+            return NativeHandle.Value;
+        }
+        catch
+        {
+            return IntPtr.Zero;
+        }
+    }
+
+    private static IntPtr EnsureNativeLibraryLoaded()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            throw new PlatformNotSupportedException("Embedded rust_blp_converter is only available for Windows.");
+
+        string resourceName = "rust_blp_converter.dll";
+        var assembly = typeof(RustBlpConverter).Assembly;
+        using var stream = assembly.GetManifestResourceStream(resourceName) ??
+                           assembly.GetManifestResourceStream($"BlpConverter.{resourceName}") ??
+                           throw new DllNotFoundException("Embedded rust_blp_converter.dll resource not found.");
+
+        string extractDir = Path.Combine(Path.GetTempPath(), "BlpConverter");
+        Directory.CreateDirectory(extractDir);
+        string extractPath = Path.Combine(extractDir, resourceName);
+
+        // Always overwrite to ensure consistent version
+        using (var fs = File.Open(extractPath, FileMode.Create, FileAccess.Write, FileShare.Read))
+            stream.CopyTo(fs);
+
+        return NativeLibrary.Load(extractPath);
     }
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
@@ -68,9 +113,7 @@ public static class RustBlpConverter
     {
         int result = blp_to_image(blpPath, outputPath, (int)format);
         if (result != SUCCESS)
-        {
             throw new Exception($"Failed to convert BLP to image: {GetErrorMessage(result)} (code: {result})");
-        }
     }
 
     public static void ImageToBlp(string imagePath, string blpPath,
@@ -78,18 +121,15 @@ public static class RustBlpConverter
     {
         int result = image_to_blp(imagePath, blpPath, (int)compression, mipmapCount);
         if (result != SUCCESS)
-        {
             throw new Exception($"Failed to convert image to BLP: {GetErrorMessage(result)} (code: {result})");
-        }
     }
 
     public static (uint width, uint height, uint mipmaps) GetBlpInfo(string blpPath)
     {
         int result = blp_get_info(blpPath, out uint width, out uint height, out uint mipmaps);
         if (result != SUCCESS)
-        {
             throw new Exception($"Failed to get BLP info: {GetErrorMessage(result)} (code: {result})");
-        }
+
         return (width, height, mipmaps);
     }
 
@@ -111,15 +151,6 @@ public static class RustBlpConverter
         }
     }
 
-    /// <summary>
-    /// Извлекает сырые пиксели из BLP файла в формате RGBA8
-    /// </summary>
-    /// <param name="blpPath">Путь к BLP файлу</param>
-    /// <param name="mipmapLevel">Уровень мипмапа (0 = полное разрешение)</param>
-    /// <param name="width">Выходная ширина</param>
-    /// <param name="height">Выходная высота</param>
-    /// <param name="dataLen">Выходная длина данных в байтах</param>
-    /// <returns>Указатель на пиксели (требует освобождения через free_pixel_data)</returns>
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr blp_get_pixels(
         [MarshalAs(UnmanagedType.LPStr)] string blpPath,
@@ -129,40 +160,28 @@ public static class RustBlpConverter
         out UIntPtr dataLen
     );
 
-    /// <summary>
-    /// Освобождает пиксели, выделенные Rust
-    /// </summary>
-    /// <param name="ptr">Указатель на данные пикселей</param>
-    /// <param name="len">Длина данных</param>
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
     private static extern void free_pixel_data(IntPtr ptr, UIntPtr len);
 
     public static Image<Rgba32> LoadBlpImage(string blpPath, int mipmapLevel = 0)
     {
-        // Получаем пиксели из Rust
         IntPtr pixelPtr = blp_get_pixels(blpPath, mipmapLevel, out uint width, out uint height, out UIntPtr dataLen);
 
         if (pixelPtr == IntPtr.Zero)
-        {
             throw new Exception($"Failed to load BLP file: {blpPath}");
-        }
 
         try
         {
             int len = (int)dataLen;
 
-            // Копируем данные в управляемый массив
             byte[] pixelData = new byte[len];
             Marshal.Copy(pixelPtr, pixelData, 0, len);
 
-            // Создаем ImageSharp Image из RGBA8 данных
             var image = Image.LoadPixelData<Rgba32>(pixelData, (int)width, (int)height);
-
             return image;
         }
         finally
         {
-            // Освобождаем память, выделенную Rust
             free_pixel_data(pixelPtr, dataLen);
         }
     }

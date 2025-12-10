@@ -34,7 +34,7 @@ A desktop AvaloniaUI utility for converting BLP (Blizzard Texture Format) images
 
 ## CI / Releases
 
-Every push triggers GitHub Actions to build a self-contained single-file Windows (`win-x64`) binary and publish a release with a fresh tag based on the commit SHA. The release bundle (`blp-converter-win-x64.zip`) contains the executable and bundled native DLL.
+ Pushes to `master` trigger GitHub Actions to build a self-contained single-file Windows (`win-x64`) binary and publish a release with a fresh tag; the release title uses the build date. The release bundle (`blp-converter-win-x64.zip`) contains the executable with the native DLL embedded and extracted at runtime. If you build manually, keep `rust_blp_converter.dll` next to the executable or supply a platform-specific version.
 
 ## Project Structure
 

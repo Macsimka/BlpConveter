@@ -34,4 +34,10 @@
       </None>
     </ItemGroup>
 
+    <ItemGroup>
+      <EmbeddedResource Include="rust_blp_converter.dll">
+        <LogicalName>rust_blp_converter.dll</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+
 </Project>

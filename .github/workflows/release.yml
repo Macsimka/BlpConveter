@@ -38,11 +38,18 @@ jobs:
           echo "zip_path=$zipPath" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
         id: archive
 
+      - name: Compute release metadata
+        id: meta
+        shell: pwsh
+        run: |
+          $date = Get-Date -Format 'yyyy-MM-dd'
+          echo "date=$date" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v-${{ github.run_number }}-${{ github.sha }}
-          name: BLP Converter ${{ github.sha }}
+          name: BLP Converter ${{ steps.meta.outputs.date }}
           body: |
             Automated release for commit ${{ github.sha }}.
             - Target: win-x64
